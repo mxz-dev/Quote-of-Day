@@ -1,3 +1,8 @@
 from django.contrib import admin
-
-# Register your models here.
+from .models import Quote
+@admin.register(Quote)
+class QuoteAdmin(admin.ModelAdmin):
+    list_display = ('text', 'author')
+    search_fields = ('text', 'author')
+    ordering = ('created_at',)
+    
