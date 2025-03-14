@@ -8,4 +8,4 @@ class QuoteSerializer(ModelSerializer):
 class UserSerializer(ModelSerializer):
     class Meta:
         model = User
-        fields = ['username', 'password']
+        fields = "__all__"
