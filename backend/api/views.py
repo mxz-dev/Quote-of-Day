@@ -1,14 +1,15 @@
 from django.shortcuts import get_object_or_404
-from rest_framework import viewsets, status
-from rest_framework.views import APIView
-from .models import Quote
-from .serializers import QuoteSerializer, UserSerializer
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
+
+from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly, IsAuthenticated
 from rest_framework.authentication import SessionAuthentication
-from django.contrib.auth.models import User
 from rest_framework.decorators import action
+
+from .models import Quote
+from .serializers import QuoteSerializer, UserSerializer
 class QuoteViewSet(viewsets.ModelViewSet):
     queryset = Quote.objects.all()
     serializer_class = QuoteSerializer
@@ -17,7 +18,7 @@ class QuoteViewSet(viewsets.ModelViewSet):
 class RandomQuoteViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Quote.objects.order_by('?')[:1]
     serializer_class = QuoteSerializer
-class LoginViewSet(viewsets.ViewSet):
+class UserViewSet(viewsets.ViewSet): # login & logout and retrieve user 
     permission_classes = [AllowAny]
     authentication_classes = [SessionAuthentication]
     http_method_names = ['get', 'post']
@@ -30,40 +31,28 @@ class LoginViewSet(viewsets.ViewSet):
             login(request, user)
             return Response({'message': 'Login successful'}, status=status.HTTP_200_OK)
         return Response({'message': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
-
-    def retrieve(self, request, pk=None):
-        if not request.user.is_authenticated:
-            return Response({'message': 'Not authenticated'}, status=status.HTTP_401_UNAUTHORIZED)
-        
-        if str(request.user.pk) != str(pk):
-            return Response({'message': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
-        
+    
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated]) 
+    def session(self, request): # to check if user is authenticated
         queryset = User.objects.all()
-        user = get_object_or_404(queryset, pk=pk)
+        user = get_object_or_404(queryset, pk=request.user.pk)
         serializer = UserSerializer(user)
-        return Response({'message': f'{serializer.data["username"]} Authenticated'}, status=status.HTTP_200_OK)
+        return Response({'message': f'{serializer.data["username"]} is Authenticated'}, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
     def logout(self, request):
         logout(request)
         return Response({'message': 'Logout successful'}, status=status.HTTP_200_OK)
 
-class SignupViewSet(viewsets.ViewSet):
+class SignupViewSet(viewsets.ModelViewSet):
+    serializer_class = UserSerializer
+    queryset = User.objects.all()
     permission_classes = [AllowAny]
-    authentication_classes = [SessionAuthentication]
-    def create(self, request):
-        if request.user.is_authenticated:
-            return Response({"message":"user already signin."}, status=status.HTTP_400_BAD_REQUEST)
-        username = request.data.get('username')
-        password1 = request.data.get('password1')
-        password2 = request.data.get('password2')
-        if password1 == password2 and len(password1) > 8:
-            if User.objects.filter(username=username).exists():
-                return Response({'message': 'Username already exists'}, status=status.HTTP_400_BAD_REQUEST)
-            user = User.objects.create_user(username=username)
-            user.set_password(password1)
-            user.save()
-            return Response({'message':'User signed up successfully'}, status=status.HTTP_201_CREATED)
-        
-        else:
-            return Response({'message': 'Passwords do not match'}, status=status.HTTP_400_BAD_REQUEST)
+    http_method_names = ['post']
+    def create(self, request, *args, **kwargs):
+        serializer = UserSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    
