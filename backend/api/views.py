@@ -32,7 +32,7 @@ class UserViewSet(viewsets.ViewSet): # login & logout and retrieve user
             return Response({'message': 'Login successful'}, status=status.HTTP_200_OK)
         return Response({'message': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
     
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated]) 
+    @action(detail=False, methods=['get']) 
     def session(self, request): # to check if user is authenticated
         queryset = User.objects.all()
         user = get_object_or_404(queryset, pk=request.user.pk)
